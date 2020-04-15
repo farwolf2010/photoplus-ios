@@ -21,8 +21,8 @@ Pod::Spec.new do |s|
   s.ios.vendored_frameworks = '*.framework'
 
   s.exclude_files = "Source/Exclude"
-  # s.dependency 'farwolf.weex' 
-  s.dependency 'farwolf.weex', :git => 'https://github.com/farwolf2010/farwolf.weex'
+  s.dependency 'farwolf.weex' 
+  # s.dependency 'farwolf.weex', :git => 'https://github.com/farwolf2010/farwolf.weex'
   s.frameworks   = "Photos", "CoreServices"
   s.dependency 'GPUImage'
   s.dependency 'ZLPhotoBrowser'
