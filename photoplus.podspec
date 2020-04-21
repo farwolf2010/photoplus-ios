@@ -14,7 +14,7 @@ Pod::Spec.new do |s|
   s.homepage     = "https://farwolf2010.github.io/doc"
   s.license      = "MIT"
   s.author             = { "zjr" => "362675035@qq.com" }
-  s.source       = { :git => "https://github.com/farwolf2010/photoplus.git", :tag => "1.0.1" }
+  s.source       = { :git => "https://github.com/farwolf2010/photoplus-ios.git", :tag => "1.0.1" }
   s.source_files  = "Source", "**/**/*.{h,m,mm,c}"
   s.resources = "resources/*",'TZImagePickerController/*.{png,bundle}'
   # s.ios.vendored_libraries = '*.a'
