@@ -9,8 +9,8 @@
 #import "farwolf.h"
 #import "farwolf_weex.h"
 #import <WeexPluginLoader/WeexPluginLoader.h>
-#import <WeexSDK/WXEventModuleProtocol.h>
-#import <WeexSDK/WXModuleProtocol.h>
+#import "WXEventModuleProtocol.h"
+#import "WXModuleProtocol.h"
 #import "UploadImage.h"
 @interface WXPhotoplusModule : NSObject <WXModuleProtocol,ImageSelectDelegate>
 @property(nonatomic,strong)UploadImage *uploadImage;
