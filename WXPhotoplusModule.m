@@ -36,6 +36,8 @@ WX_EXPORT_METHOD_SYNC(@selector(getData))
     CGFloat aspX=0;
     CGFloat aspY=0;
     CGFloat maxSize=0;
+    int maxCount=99;
+    
     if(param[@"aspX"]){
           aspX=  [[@"" add:param[@"aspX"]] floatValue] ;
       }
@@ -45,16 +47,20 @@ WX_EXPORT_METHOD_SYNC(@selector(getData))
     if(param[@"maxSize"]){
         maxSize=  [[@"" add:param[@"maxSize"]] floatValue] ;
      }
+    if(param[@"maxCount"]){
+        maxCount=  [[@"" add:param[@"maxCount"]] intValue] ;
+     }
+    
 
     if([@"choose" isEqualToString:action]){
         if([@"video" isEqualToString:type]){
             [self chooseVideo:callback];
         }else{
-            int count=99;
+            int maxCount=99;
             if(aspX>0&&aspY>0){
-                count=1;
+                maxCount=1;
             }
-            [self chooseImage:maxSize aspX:aspX aspY:aspY count:count callback:callback];
+            [self chooseImage:maxSize aspX:aspX aspY:aspY count:maxCount callback:callback];
         }
        
     }else{
