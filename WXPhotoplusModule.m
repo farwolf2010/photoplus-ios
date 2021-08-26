@@ -7,8 +7,9 @@
 
 #import "WXPhotoplusModule.h"
 #import "TZImagePickerController.h"
-#import <ZLPhotoBrowser/ZLPhotoBrowser.h>
+//#import <ZLPhotoBrowser/ZLPhotoBrowser.h>
 #import "farwolf.h"
+#import "RSKImageCropper/RSKImageCropper.h"
  
 //#import <SDWebImage/SDAnimatedImageView.h>
 
@@ -22,9 +23,11 @@ WX_PlUGIN_EXPORT_MODULE(photoplus, WXPhotoplusModule)
 WX_EXPORT_METHOD(@selector(open:callback:))
 //同步返回方法注册
 WX_EXPORT_METHOD_SYNC(@selector(getData))
-    
+CGFloat _aspX = 0.0f;
+CGFloat _aspY = 0.0f;
+WXModuleCallback _returnImgPath;
 -(void)open:(NSMutableDictionary*)param  callback:(WXModuleCallback)callback{
-    
+    _returnImgPath = callback;
     NSString *action=@"choose";
     if(param[@"action"]){
         action=param[@"action"];
@@ -39,16 +42,18 @@ WX_EXPORT_METHOD_SYNC(@selector(getData))
     int maxCount=99;
     
     if(param[@"aspX"]){
-          aspX=  [[@"" add:param[@"aspX"]] floatValue] ;
+          aspX = [[@"" add:param[@"aspX"]] floatValue];
+          _aspX = aspX;
       }
     if(param[@"aspY"]){
-             aspY=  [[@"" add:param[@"aspY"]] floatValue] ;
+          aspY = [[@"" add:param[@"aspY"]] floatValue];
+         _aspY = aspY;
     }
     if(param[@"maxSize"]){
-        maxSize=  [[@"" add:param[@"maxSize"]] floatValue] ;
+        maxSize = [[@"" add:param[@"maxSize"]] floatValue];
      }
     if(param[@"maxCount"]){
-        maxCount=  [[@"" add:param[@"maxCount"]] intValue] ;
+        maxCount = [[@"" add:param[@"maxCount"]] intValue] ;
      }
     
 
@@ -106,7 +111,7 @@ WX_EXPORT_METHOD_SYNC(@selector(getData))
     TZImagePickerController *imagePickerVc = [[TZImagePickerController alloc] initWithMaxImagesCount:count delegate:self];
     CGFloat width=UIApplication.sharedApplication.keyWindow.frame.size.width;
     CGFloat height=UIApplication.sharedApplication.keyWindow.frame.size.height;
-    imagePickerVc.allowCrop=true;
+    imagePickerVc.allowCrop=false;
 //    imagePickerVc.cropRect=CGRectMake(0, 0, aspX, aspY);
     imagePickerVc.allowPickingVideo=NO;
        imagePickerVc.allowPickingImage = true;
@@ -127,9 +132,15 @@ WX_EXPORT_METHOD_SYNC(@selector(getData))
               [photoplus delete];
           }
          if(aspX>0&&aspY>0){
-               NSString *path= [photos[0] save:[[@"photoplus/imgs/origin/" add:[[NSDate new] getCurrentTimestamp]]add:@".png"]];
-             [ary addObject:@{@"path":[PREFIX_SDCARD add:path] }];
-             callback(@{@"res":ary});
+             RSKImageCropViewController *imageCropVC = [[RSKImageCropViewController alloc] initWithImage:photos[0]];
+             imageCropVC.cropMode = RSKImageCropModeCustom;
+             imageCropVC.delegate = self;
+             imageCropVC.dataSource = self;
+//                 [self.navigationController pushViewController:imageCropVC animated:YES];
+            [weexInstance.viewController presentViewController:imageCropVC animated:YES completion:nil];
+//             NSString *path= [photos[0] save:[[@"photoplus/imgs/origin/" add:[[NSDate new] getCurrentTimestamp]]add:@".png"]];
+//             [ary addObject:@{@"path":[PREFIX_SDCARD add:path] }];
+//             callback(@{@"res":ary});
              return;
          }
        
@@ -202,7 +213,142 @@ WX_EXPORT_METHOD_SYNC(@selector(getData))
     return 0;
 }
 
- 
+// Returns a custom rect for the mask.
+- (CGRect)imageCropViewControllerCustomMaskRect:(RSKImageCropViewController *)controller
+{
+    CGSize aspectRatio = CGSizeMake(16.0f, 9.0f);
     
+    CGFloat viewWidth = CGRectGetWidth(controller.view.frame);
+    CGFloat viewHeight = CGRectGetHeight(controller.view.frame);
+    
+    CGFloat maskWidth;
+    if ([controller isPortraitInterfaceOrientation]) {
+        maskWidth = viewWidth;
+    } else {
+        maskWidth = viewHeight;
+    }
+    
+    CGFloat maskHeight;
+    do {
+        maskHeight = maskWidth * aspectRatio.height / aspectRatio.width;
+        maskWidth -= 1.0f;
+    } while (maskHeight != floor(maskHeight));
+    maskWidth += 1.0f;
+    
+    CGSize maskSize = CGSizeMake(maskWidth, maskHeight);
+    //剪裁区域
+    CGRect maskRect = CGRectMake((viewWidth - _aspX) * 0.5f,
+                                 (viewHeight - _aspY) * 0.5f,
+                                 _aspX,
+                                 _aspY);
+    return maskRect;
+}
+
+// Returns a custom path for the mask.
+- (UIBezierPath *)imageCropViewControllerCustomMaskPath:(RSKImageCropViewController *)controller
+{
+    CGRect rect = controller.maskRect;
+    CGPoint point1 = CGPointMake(CGRectGetMinX(rect), CGRectGetMaxY(rect));
+    CGPoint point2 = CGPointMake(CGRectGetMaxX(rect), CGRectGetMaxY(rect));
+    CGPoint point3 = CGPointMake(CGRectGetMaxX(rect), CGRectGetMinY(rect));
+    CGPoint point4 = CGPointMake(CGRectGetMinX(rect), CGRectGetMinY(rect));
+    
+    UIBezierPath *rectangle = [UIBezierPath bezierPath];
+    [rectangle moveToPoint:point1];
+    [rectangle addLineToPoint:point2];
+    [rectangle addLineToPoint:point3];
+    [rectangle addLineToPoint:point4];
+    [rectangle closePath];
+    
+    return rectangle;
+}
+
+// Returns a custom rect in which the image can be moved.
+- (CGRect)imageCropViewControllerCustomMovementRect:(RSKImageCropViewController *)controller
+{
+    if (controller.rotationAngle == 0) {
+        return controller.maskRect;
+    } else {
+        CGRect maskRect = controller.maskRect;
+        CGFloat rotationAngle = controller.rotationAngle;
+        
+        CGRect movementRect = CGRectZero;
+        
+        movementRect.size.width = CGRectGetWidth(maskRect) * fabs(cos(rotationAngle)) + CGRectGetHeight(maskRect) * fabs(sin(rotationAngle));
+        movementRect.size.height = CGRectGetHeight(maskRect) * fabs(cos(rotationAngle)) + CGRectGetWidth(maskRect) * fabs(sin(rotationAngle));
+        
+        movementRect.origin.x = CGRectGetMinX(maskRect) + (CGRectGetWidth(maskRect) - CGRectGetWidth(movementRect)) * 0.5f;
+        movementRect.origin.y = CGRectGetMinY(maskRect) + (CGRectGetHeight(maskRect) - CGRectGetHeight(movementRect)) * 0.5f;
+        
+        movementRect.origin.x = floor(CGRectGetMinX(movementRect));
+        movementRect.origin.y = floor(CGRectGetMinY(movementRect));
+        movementRect = CGRectIntegral(movementRect);
+        
+        return movementRect;
+    }
+}
+
+// Crop image has been canceled.
+
+- (void)imageCropViewControllerDidCancelCrop:(RSKImageCropViewController *)controller
+{
+    [weexInstance.viewController dismissViewControllerAnimated:YES completion:nil];
+}
+
+// The original image has been cropped.
+
+//TODO 没有执行
+- (void)imageCropViewController:(RSKImageCropViewController *)controller
+didCropImage:(UIImage *)croppedImage
+usingCropRect:(CGRect)cropRect
+{
+    NSLog(@"done???");
+//    self.imageView.image = croppedImage;
+//    [self.navigationController popViewControllerAnimated:YES];
+}
+
+// The original image has been cropped. Additionally provides a rotation angle used to produce image.
+
+- (void)imageCropViewController:(RSKImageCropViewController *)controller
+
+didCropImage:(UIImage *)croppedImage
+
+usingCropRect:(CGRect)cropRect
+
+rotationAngle:(CGFloat)rotationAngle
+{
+    //确定剪裁回调
+    NSString *path= [croppedImage save:[[@"photoplus/imgs/origin/" add:[[NSDate new] getCurrentTimestamp]]add:@".png"]];
+    NSMutableDictionary *data=[NSMutableDictionary new];
+    NSMutableDictionary *item=[NSMutableDictionary new];
+    [item setValue:[PREFIX_SDCARD add:path] forKey:@"path"];
+    
+    NSMutableArray *ary=[NSMutableArray new];
+    [ary addObject:item];
+//    if(count==assets.count){
+//        callback(data);
+//    }
+    data[@"res"]=ary;
+    _returnImgPath(data);
+    [weexInstance.viewController dismissViewControllerAnimated:YES completion:nil];
+//    [weexInstance.viewController pop];
+//self.imageView.image = croppedImage;
+
+//[self.navigationController popViewControllerAnimated:YES];
+
+}
+
+// The original image will be cropped.
+
+- (void)imageCropViewController:(RSKImageCropViewController *)controller
+
+willCropImage:(UIImage *)originalImage
+{
+    NSLog(@"will");
+// Use when `applyMaskToCroppedImage` set to YES.
+
+//[SVProgressHUD show];
+
+}
  
 @end
